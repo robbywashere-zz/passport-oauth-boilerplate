@@ -71,8 +71,6 @@ function AuthApp(app, config, handler){
     state: true
   },config.credentials,config.stratConfig || {})
 
-  console.log(Options)
-
   let _handler = (handler || Handler).bind(config);
   let strategy = new config.strategy(Options,_handler)
 

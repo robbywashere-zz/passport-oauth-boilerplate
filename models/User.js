@@ -10,10 +10,5 @@ module.exports = {
     oauthID: INTEGER
   },
   Associate(Models){
-  },
-  Hooks: {
-    afterCreate(user){
-      console.log(`>>> Creating new user: ${JSON.stringify(user)}`)
-    }
   }
 }

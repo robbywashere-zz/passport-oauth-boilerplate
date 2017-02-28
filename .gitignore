@@ -49,5 +49,4 @@ gen
 #Environment Variables
 .env
 
-
-.db
+.db/db.development.sqlite

@@ -47,7 +47,7 @@ out
 gen
 
 #Environment Variables
-*.env
+.env
 
 
 .db

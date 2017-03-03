@@ -3,7 +3,7 @@ const { AuthApp, Handler } = require('./passport-auth');
 const { User } = require('../models')
 
 function handler(accessToken, refreshToken, extraParams, profile, done) { 
-  return Handler(accessToken, refreshToken, profile, done)
+  return Handler.bind(this)(accessToken, refreshToken, profile, done)
 }
 
 module.exports = function(app, { clientID, clientSecret, domain }) {

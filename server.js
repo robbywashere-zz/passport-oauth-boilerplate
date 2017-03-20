@@ -24,6 +24,14 @@ app.use(require('express-session')({
 }));
 
 
+if (!fs.existsSync('.env') && process.env.NODE_ENV === "development") {
+  console.error(`****
+
+ERROR: Cannot locate .env file!
+
+***`)
+} 
+
 GoogleOAuth(app,{ 
   clientID: process.env.GOOGLE_CLIENTID, 
   clientSecret: process.env.GOOGLE_CLIENTSECRET 

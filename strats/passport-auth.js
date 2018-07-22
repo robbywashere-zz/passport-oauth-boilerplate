@@ -1,47 +1,68 @@
-const { Passport } = require('passport')
-const Promise = require('bluebird')
+const { Passport } = require('passport');
 
-const url = require('url')
+const url = require('url');
 
-function Handler(accessToken,refreshToken,profile,done) {
+async function UserHandler(defaultUser) {
 
-  let defUser = {}
+  let created;
+  [ user, created] = await this.userModel.findOrCreate({
+    defaults: defaultUser,
+    where: { [this.findBy]: defUser[this.findBy] },
+  });
 
-  let newProfile = Object.assign(profile,{
-    accessToken,
-    refreshToken
-  })
+  if (!created) await user.update(defUser);
 
-  Object.keys(this.defaultUser).forEach((k) => {
-    defUser[k] = this.defaultUser[k](newProfile)
-  })
+  user.setDataValue('newUser', !!created);
 
-  Promise.coroutine(function*(){
-
-    try {
-      let [ user, created ] = yield this.userModel.findOrCreate({ 
-        defaults: defUser,
-        where: { [this.findBy]: defUser[this.findBy] }
-      })
-
-      if (!created) yield user.update(defUser)
-
-      done(null, user)
-
-    } catch(e) {
-      done(e, null)
-    }
-
-  }).bind(this)();
-
+  return user;
 }
 
 
+function deserializeUser(id, done) {
+  this.userModel
+    .findById(id)
+    .then(user => done(null, user))
+    .catch(err => done(err));
+};
 
-function AuthApp(app, config, handler){
+function serializeUser(user, done) {
+  done(null, user.id);
+};
+
+//TODO: change name?
+async function SignOn(accessToken, refreshToken, profile, done) {
+  const defUser = {};
+
+  const newProfile = Object.assign(profile, {
+    accessToken,
+    refreshToken,
+  });
+
+  Object.keys(this.defaultUser).forEach((k) => {
+    defUser[k] = this.defaultUser[k](newProfile);
+  });
 
 
-  let missing = [
+  try {
+    let user = await this.userHandler.bind(this)(defUser);
+    done(null, user);
+  } catch (e) {
+    done(e, null);
+  }
+}
+
+
+function AuthApp(app, config) {
+
+  //defaults
+  config = Object.assign({ 
+    userHandler: UserHandler, 
+    signOn: SignOn, 
+  }, config);
+  
+  const passport = new Passport();
+
+  const missing = [
     'credentials',
     'loginURL',
     'strategy',
@@ -51,70 +72,59 @@ function AuthApp(app, config, handler){
     'defaultUser',
     'successRedirect',
     'failureRedirect',
-  ].filter( arg => !config.hasOwnProperty(arg))
-  if (missing.length > 0) throw new Error(`Missing args: ${missing.join(',')}`)
-  let cc = config.credentials
+  ].filter(arg => !config.hasOwnProperty(arg));
+  if (missing.length > 0) throw new Error(`Missing args: ${missing.join(',')}`);
+  const cc = config.credentials;
   Object.keys(cc).forEach((k) => {
-    if (typeof cc[k] === "undefined") {
-      throw new Error(`credentials error: ${k} is 'undefined'`)
+    if (typeof cc[k] === 'undefined') {
+      throw new Error(`credentials error: ${k} is 'undefined'`);
     }
-  })
+  });
 
-  let passport = new Passport()
 
-  app.use(passport.initialize())
+  app.use(passport.initialize());
 
-  app.use(passport.session())
+  app.use(passport.session());
 
-  let Options = Object.assign({
+  const Options = Object.assign({
     callbackURL: config.callbackURL,
-    state: true
-  },config.credentials,config.stratConfig || {})
+    state: true,
+  }, config.credentials, config.stratConfig || {});
 
-  let _handler = (handler || Handler).bind(config);
-  let strategy = new config.strategy(Options,_handler)
+  const _handler = SignOn.bind(config);
+  const strategy = new config.strategy(Options, _handler);
 
-  passport.use(strategy)
+  passport.use(strategy);
 
-  passport.serializeUser((user, done) => { 
-    done(null, user.id) 
-  })
+  passport.serializeUser(config.serializeUser || serializeUser.bind(config));
 
-  passport.deserializeUser((id, done) => { 
-    config.userModel
-      .findById(id)
-      .then(user => done(null, user))
-      .catch(err => done(err))
-  })
+  passport.deserializeUser(config.deserializeUser || deserializeUser.bind(config));
 
   app.get(config.loginURL,
     passport.authenticate(strategy.name, config.authConfig || {})
   );
 
-  app.get(url.parse(config.callbackURL).pathname, 
-    passport.authenticate(strategy.name, { 
+  app.get(url.parse(config.callbackURL).pathname,
+    passport.authenticate(strategy.name, {
       failureRedirect: config.failureRedirect,
-      successRedirect: config.successRedirect
+      successRedirect: config.successRedirect,
     }),
-    function(err,req,res,next){
+    function (err, req, res, next) {
       if (err) {
         console.log(`>>>>>> Passport-Auth Exception
 
-${JSON.stringify(err,null,4)}
+${JSON.stringify(err, null, 4)}
 
 <<<<<<< check your configuration
-          `)
-        next(err)
+          `);
+        next(err);
       }
       else {
-        next()
+        next();
       }
-
     });
-
-
 }
 
 
-module.exports = { AuthApp, Handler }
+module.exports = { AuthApp, SignOn };
 

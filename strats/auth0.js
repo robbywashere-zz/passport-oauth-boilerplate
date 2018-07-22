@@ -1,9 +1,9 @@
 let { Strategy } = require('passport-auth0');
-const { AuthApp, Handler } = require('./passport-auth');
+const { AuthApp, SignOn } = require('./passport-auth');
 const { User } = require('../models')
 
-function handler(accessToken, refreshToken, extraParams, profile, done) { 
-  return Handler.bind(this)(accessToken, refreshToken, profile, done)
+function signOn(accessToken, refreshToken, extraParams, profile, done) { 
+  return SignOn.bind(this)(accessToken, refreshToken, profile, done)
 }
 
 module.exports = function(app, { clientID, clientSecret, domain }) {
@@ -15,6 +15,7 @@ module.exports = function(app, { clientID, clientSecret, domain }) {
     strategy:  Strategy,
     successRedirect: '/whoami',
     failureRedirect: '/',
+    signOn,
     findBy: 'oauthID',
     stratConfig: { domain },
     defaultUser:{
@@ -30,5 +31,5 @@ module.exports = function(app, { clientID, clientSecret, domain }) {
       scope: [''],
       showDialog: true
     } 
-  }, handler)
+  })
 }
